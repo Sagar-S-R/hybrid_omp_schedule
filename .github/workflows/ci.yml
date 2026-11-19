@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.os }} / ${{ matrix.compiler }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            compiler: gcc
+            cc: gcc-12
+            cxx: g++-12
+          - os: ubuntu-22.04
+            compiler: clang
+            cc: clang-14
+            cxx: clang++-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build \
+            libgomp1 \
+            ${{ matrix.cc }} ${{ matrix.cxx }} 2>/dev/null || true
+          # Install OpenMP for clang if needed
+          sudo apt-get install -y --no-install-recommends libomp-dev 2>/dev/null || true
+
+      - name: Configure (portable, no native, homogeneous forced)
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DHS_NATIVE=OFF \
+            -DHS_BUILD_BENCH=ON \
+            -DHS_BUILD_TOOLS=ON \
+            -DHS_BUILD_TESTS=ON \
+            -DHS_BUILD_EXAMPLES=ON \
+            -G Ninja
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Run tests
+        env:
+          HS_FORCE_HOMOGENEOUS: "1"
+          OMP_PROC_BIND: "false"
+          OMP_DYNAMIC: "false"
+          OMP_NUM_THREADS: "2"
+        run: ctest --test-dir build --output-on-failure --timeout 120
+
+  build-sanitize:
+    name: ubuntu-22.04 / gcc / ASan+UBSan
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build g++-12 libgomp1
+
+      - name: Configure with sanitizers
+        env:
+          CC: gcc-12
+          CXX: g++-12
+        run: |
+          cmake -S . -B build-san \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DHS_NATIVE=OFF \
+            -DHS_BUILD_BENCH=OFF \
+            -DHS_BUILD_TOOLS=OFF \
+            -DHS_BUILD_TESTS=ON \
+            -DHS_BUILD_EXAMPLES=OFF \
+            -DHS_SANITIZE=ON \
+            -G Ninja
+
+      - name: Build
+        run: cmake --build build-san --parallel
+
+      - name: Run tests under ASan/UBSan
+        env:
+          HS_FORCE_HOMOGENEOUS: "1"
+          OMP_PROC_BIND: "false"
+          OMP_DYNAMIC: "false"
+          OMP_NUM_THREADS: "2"
+          ASAN_OPTIONS: "detect_leaks=1:abort_on_error=1"
+          UBSAN_OPTIONS: "print_stacktrace=1:abort_on_error=1"
+        run: ctest --test-dir build-san --output-on-failure --timeout 180

@@ -1,0 +1,6 @@
+foreach(ex 01_replace_pragma 02_reduction 03_inspect_plan)
+    add_executable(${ex} ${ex}.cpp)
+    target_include_directories(${ex} PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(${ex} PRIVATE hybrid_sched::hybrid_sched OpenMP::OpenMP_CXX Threads::Threads)
+    target_compile_options(${ex} PRIVATE ${HS_WARN_FLAGS})
+endforeach()

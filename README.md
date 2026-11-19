@@ -2,7 +2,7 @@
 
 **Core-Type-Aware OpenMP Loop Scheduling on Hybrid P-Core/E-Core CPUs: An Energy-Delay-Product Study**
 
-*CS72 Multicore Architecture and Programming — Sagar*
+*CS72 Multicore Architecture and Programming*
 
 ---
 
@@ -146,7 +146,3 @@ Among prior works surveyed:
 Our approach differs in targeting EDP (not just time), recalibrating per call, and running entirely at user level without modifying the OpenMP runtime or the kernel.
 
 ---
-
-## License
-
-MIT — see `LICENSE`. Author: Sagar.
